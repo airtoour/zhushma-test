@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:latest
+    container_name: db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env-non-dev
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "${DB_USER}", "-d", "${DB_NAME}" ]
+      interval: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+    networks:
+      - default
+
+  api:
+    build: .
+    command: >
+      sh -c "litestar --app=app.main:app database upgrade --no-prompt &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - default
+
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
